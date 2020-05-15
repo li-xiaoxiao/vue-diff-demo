@@ -99,7 +99,13 @@ export function patch(newVnode, oldVnode) { //geng
     oldVnode.domElement.innerHTML = ''
   }
 }
-
+function oldmap(arr) {
+  return arr.reduce((acc, [item, index]) => {
+    const {key} = item
+    key ? acc[key] = index : null
+    return acc
+  }, {})
+}
 /** 
  * parent, 外层节点，方便操作内部的节点
  * newChildren新虚拟dom的儿子
@@ -117,6 +123,7 @@ function updeteChild(parent, newChildren, oldChildren) {
   let oldStart = oldChildren[0] // 新的开始虚拟节点
   let oldEndIndex = oldChildren.length - 1
   let oldEnd = oldChildren[newEndIndex]
+  let oldChildrenMap = oldmap(oldChildren)
 
   /* 情况：
   * 新的开始 == 老的开始
@@ -127,18 +134,64 @@ function updeteChild(parent, newChildren, oldChildren) {
   */
   // 谁先满足就结束循环
   while(newStartIndex <= newEndIndex && oldStartIndex <= oldEndIndex) {
-    if(isSameNode(newStart, oldStart)) {
-      // 新的开始 == 老的开始，指针后移，更新属性
+    if (!oldStart) {
+      // 排除undefined的情况
+      oldStart = oldChildren[++oldStartIndex]
+    } else if(!oldEnd) {
+      oldEnd = oldChildren[--oldEndIndex]
+    } else if(isSameNode(newStart, oldStart)) {
+      // 新的开始 == 老的开始，头指针后移，更新属性
       patch(newStart, oldStart)
       newStart = newChildren[++newStartIndex]
       oldStart = oldChildren[++oldStartIndex]
+    } else if (isSameNode(newEnd, oldEnd)) {
+      // 新的尾 == 老的尾，尾指针前移，更新属性
+      patch(newEnd, oldEnd)
+      newEnd = newChildren[--newEndIndex]
+      oldEnd = oldChildren[--oldEndIndex]
+    } else if(isSameNode(newStart, oldEnd)) {
+       // 新的开始 == 老的尾， 新的头指针后移， 老的尾指针前移
+       patch(newStart, oldEnd)
+       parent.insertBefore(oldEnd.domElement, oldStart.domElement)
+       newStart = newChildren[++newStartIndex]
+       oldEnd = oldChildren[--oldEndIndex]
+     } else if(isSameNode(newEnd, oldStart)) {
+      // 新的尾 == 老的开始， 新的尾指针前移， 老的头指针后移
+      patch(newEnd, oldStart)
+      parent.insertBefore(oldStart.domElement, oldEnd.domElement.nextSiblings)
+      newEnd = newChildren[--newEndIndex]
+      oldStart = oldChildren[++oldStartIndex]
+    } else {
+      // 都不一样，则要建立一个老children中key和元素的映射,遍历新的每一个，如果在老的存在就复用，不存在就创建
+      const index = oldChildrenMap[newStart.key]
+      if (index) {
+        // 复用
+        patch(newStart, oldChildren(index))
+        parent.insertBefore(oldChildren[index].domElement, oldStartIndex.domElement)
+        oldChildren[index] = null
+        
+      } else {
+        // 创建
+        parent.insertBefore(createDomByVnode(newStart), oldStart.domElement)
+      }
+      newStart = newChildren[++newStartIndex]
     }
   }
   // 循环之后，新的如果有剩余
   if (newStartIndex <= newEndIndex) {
     for (let i = newStartIndex; i <= newEndIndex; i++) {
-      parent.appendChild(createDomByVnode(newChildren[i]))
+      // 如果遍历之后， i+1个元素有值则是向前追加元素， 否则是向后插入元素
+      const beforeElement = newChildren[newEndIndex + 1] == null ? null : newChildren[newEndIndex + 1].domElement
+      beforeElement.domElement.insertBefore(createDomByVnode(creanewChildren[i]), beforeElement)
     }
   }
-
+  // 如果老的有剩余，则删除
+  if (oldIndex <= oldEndIndex) {
+    for (let i = oldStartIndex; i <= oldEndIndex; i++) {
+      // 删除
+      if (oldChildred[i].domElement) {
+        parent.removeChild(oldChildred[i].domElement)
+      }
+    }
+  }
 }

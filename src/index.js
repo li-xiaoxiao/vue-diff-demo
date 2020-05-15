@@ -12,7 +12,6 @@ h('li', {key: 'A'}, 'A1'),
 h('li', {key: 'B'}, 'B1'),
 h('li', {key: 'C'}, 'C1'),
 h('li', {key: 'D'}, 'D1'),
-h('li', {key: 'E'}, 'E1')
 )
 
 setTimeout(() => {
